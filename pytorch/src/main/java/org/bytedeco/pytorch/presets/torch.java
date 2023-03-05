@@ -21,6 +21,7 @@
  */
 package org.bytedeco.pytorch.presets;
 
+import java.util.ArrayList;
 import java.util.List;
 import org.bytedeco.javacpp.ClassProperties;
 import org.bytedeco.javacpp.LoadEnabled;
@@ -77,6 +78,7 @@ import org.bytedeco.openblas.presets.openblas;
 //                "c10/util/accumulate.h",
 //                "c10/util/either.h",
 //                "c10/util/flat_hash_map.h",
+//                "c10/util/order_preserving_flat_hash_map.h",
 //                "c10/util/intrusive_ptr.h",
 //                "c10/util/irange.h",
 //                "c10/util/overloaded.h",
@@ -165,6 +167,7 @@ import org.bytedeco.openblas.presets.openblas;
 //                "ATen/core/QuantizerBase.h",
 //                "ATen/core/IListRef.h",
                 "ATen/core/Dict.h",
+//                "ATen/core/Dict_inl.h",
                 "ATen/core/List.h",
                 "ATen/core/NamedTensor.h",
                 "ATen/core/Reduction.h",
@@ -1631,9 +1634,13 @@ import org.bytedeco.openblas.presets.openblas;
                 "torch/serialize/tensor.h",
 
                 "torch/nn.h",
-                "torch/nn/cloneable.h",
                 "torch/nn/init.h",
-                "torch/nn/pimpl.h",
+
+                "torch/nn/module.h", // Must be listed before pimpl.h for copy Module => ModuleHolder
+                "torch/nn/modules.h",
+                "torch/nn/modules/common.h",
+                "torch/nn/cloneable.h", // Must be listed after module.h for flatten() to work
+
                 "torch/nn/utils.h",
                 "torch/nn/utils/clip_grad.h",
                 "torch/nn/utils/convert_parameters.h",
@@ -1680,11 +1687,8 @@ import org.bytedeco.openblas.presets.openblas;
                 "torch/nn/functional/vision.h",
                 "torch/nn/functional/instancenorm.h",
 
-                "torch/nn/module.h",
-                "torch/nn/modules.h",
-                "torch/nn/modules/common.h",
-
                 "torch/nn/modules/container/any.h",
+                "torch/nn/modules/container/any_value.h",
 //                "torch/nn/modules/container/functional.h",
                 "torch/nn/modules/container/moduledict.h",
                 "torch/nn/modules/container/modulelist.h",
@@ -1713,6 +1717,8 @@ import org.bytedeco.openblas.presets.openblas;
                 "torch/nn/modules/transformerlayer.h",
                 "torch/nn/modules/transformercoder.h",
                 "torch/nn/modules/transformer.h",
+
+                "torch/nn/pimpl.h", // Definition of module holders: musr be listed after module implementations.
 
                 "torch/optim.h",
                 "torch/optim/optimizer.h",
@@ -1806,6 +1812,25 @@ public class torch implements LoadEnabled, InfoMapper {
         }
     }
 
+    /* Functions copied from Module base class or module implementations to module holders.
+     * Other (module-specific) functions (like reset, forward_with_indices...)
+     * should be called through ModuleHolder.get().
+     * Template methods register_module and replace_module are not copied. */
+    private static String[] moduleMethods = {
+            "register_parameter", "is_serializable", "is_training", "pretty_print", "named_children",
+            "named_modules", "name", "clone", "load", "apply", "to", "modules", "save", "parameters", "buffers",
+            "children", "zero_grad", "register_buffer",
+            "named_parameters", "named_buffers", "train", "eval", "forward"
+    };
+            // Specific to some modules:
+            /*
+            "reset", "reset_running_stats", "reset_parameters", "flatten_parameters", "all_weights", "_get_full_log_prob",
+            "log_prob","predict", "forward_with_indices", "forward_with_packed_input", "values", "update", "clear", "size",
+            "end", "contains", "begin", "empty", "keys", "pop", "items", "insert", "append", "at", "ptr(size_t)", "push_back", "get(std::basic_string)"
+
+    */
+
+
     public void mapModule(InfoMap infoMap, String name) {
         mapModule(infoMap, name, false);
     }
@@ -1822,37 +1847,95 @@ public class torch implements LoadEnabled, InfoMapper {
         mapModule(infoMap, name, base, null, hasDefaultConstructor);
     }
     public void mapModule(InfoMap infoMap, String name, String base, String baseBase, boolean hasDefaultConstructor) {
+      String baseBaseConstructor;
         if (baseBase != null) {
             infoMap.put(new Info(baseBase).pointerTypes(name + "ImplBaseBase"));
-        }
+          int template = baseBase.indexOf('<');
+          int namespace = baseBase.lastIndexOf("::", template);
+          baseBaseConstructor = baseBase + baseBase.substring(namespace, template);
+        } else baseBaseConstructor = null;
 
+        String baseConstructor;
         if (base != null) {
             int template = base.indexOf('<');
             int namespace = base.lastIndexOf("::", template);
-            infoMap.put(new Info(base + base.substring(namespace, template)).annotations("@NoDeallocator"))
-                   .put(new Info(base, base.replace("torch::nn::" + name + "Impl", name + "Impl")).purify(baseBase != null).pointerTypes(name + "ImplBase"));
+            baseConstructor = base + base.substring(namespace, template);
+            infoMap.put(new Info(baseConstructor).annotations("@NoDeallocator"))
+                   .put(new Info(base, base.replace("torch::nn::" + name + "Impl", name + "Impl")).purify(baseBase != null).pointerTypes(name + "ImplBase"))
+                   //.put(new Info("torch::nn::" + name).copyFrom(base + "::" + base.substring(base.lastIndexOf(':')+1)))
+
+            ;
+      /*      if (!name.equals("Sequential"))
+                infoMap
+                    .put(new Info("torch::nn::AnyModule<torch::nn::" + name + "Impl>").javaNames("AnyModule"))
+                   //.put(new Info("torch::nn::SequentialImpl::push_back(M&& module)").javaNames("push_back"))
+                   //.put(new Info("torch::nn::SequentialImpl::push_back(std::string name, M&& module)").javaNames("push_back"))
+                    ;
+       */
+        } else baseConstructor = null;
+
+        String moduleClass = "torch::nn::" + name + "Impl";
+        String moduleConstructor = "torch::nn::" + name + "Impl::" + name + "Impl";
+
+        ArrayList<String> copyFrom = new ArrayList<>(3);
+        copyFrom.add(moduleConstructor);
+        //if (baseConstructor != null) copyFrom.add(baseConstructor);
+        //if (baseBaseConstructor != null) copyFrom.add(baseBaseConstructor);
+        for (String m: moduleMethods) {
+            copyFrom.add(moduleClass + "::" + m);
+            if (base != null) copyFrom.add(base + "::" + m);
+            if (baseBase != null) copyFrom.add(baseBase + "::" + m);
+            copyFrom.add("torch::nn::Module::" + m);
         }
 
-        infoMap.put(new Info("torch::nn::" + name + "Impl::" + name + "Impl").annotations("@NoDeallocator"))
+        if (name.equals("BatchNorm2d")) System.err.println(copyFrom);
+
+        infoMap.put(new Info(moduleConstructor).annotations("@NoDeallocator"))
                .put(new Info("std::shared_ptr<torch::nn::" + name + "Impl>").annotations("@SharedPtr")
-                       .valueTypes("@Cast({\"\", \"std::shared_ptr<torch::nn::" + name + "Impl>\"}) " + name + "Impl").pointerTypes(name + "Impl"))
+                       .valueTypes("@Cast({\"\", \"std::shared_ptr<" + moduleClass + ">\"}) " + name + "Impl").pointerTypes(name + "Impl"))
+                       //.valueTypes("@ByVal SharedModule")
+                      /// .pointerTypes("SharedModule").castAsArg()
+                       //.annotations("@Name(\"dynamic_pointer_cast<torch::nn::" + name + "Impl>\")")
+                       // Pas supporté => skip constructeurs
+                       //.define())
+                // PKOI ? .put(new Info("torch::nn::ModuleHolder<torch::nn::" + name + "Impl>(std::shared_ptr<torch::nn::" + name + "Impl>)").skip())
                .put(new Info("torch::nn::Cloneable<torch::nn::" + name + "Impl>",
                              "torch::nn::Cloneable<" + name + "Impl>").pointerTypes(name + "ImplCloneable"))
-               .put(new Info("torch::nn::Cloneable<torch::nn::" + name + "Impl>::reset").javaText("public native void reset();\n"
-                     + "@Override public Module asModule() { return asModule(this); }\n"
-                     + "@Namespace public static native @Name(\"static_cast<torch::nn::Module*>\") Module asModule(" + name + "ImplCloneable module);\n"))
-               .put(new Info("torch::nn::ModuleHolder<torch::nn::" + name + "Impl>").pointerTypes(name + "ImplModuleHolder"))
-               .put(new Info("torch::nn::Module::register_module<torch::nn::" + name + "Impl>").javaNames("register_module"));
+       //        .put(new Info("torch::nn::Cloneable<torch::nn::" + name + "Impl>::reset").javaText("public native void reset();\n"
+                     //+ "@Override public Module asModule() { return asModule(this); }\n"
+                     //+ "@Namespace public static native @Name(\"static_cast<torch::nn::Module*>\") Module asModule(" + name + "ImplCloneable module);\n"))
 
+                .put(new Info("torch::nn::ModuleHolder<" + moduleClass + ">")
+                        .copyFrom(copyFrom.toArray(new String[0]))
+                        .pointerTypes(name))
+                .put(new Info("torch::nn::" + name).skip())
+                //.put(new Info("torch::nn::ModuleHolder<torch::nn::" + name + "Impl>::forward").annotations("@Name(\"operator()\")"))
+               .put(new Info("torch::nn::Module::register_module<" + moduleClass + ">").javaNames("register_module"))
+                /*.put(new Info("torch::nn::ModuleHolder<torch::nn::" + name + "Impl>::operator ->").skip()) // Cannot override superclass operator
+                .put(new Info("torch::nn::ModuleHolder<torch::nn::" + name + "Impl>::operator *").skip()) // Cannot override superclass operator
+                .put(new Info("torch::nn::ModuleHolder<torch::nn::" + name + "Impl>::ptr").skip()) // Cannot override superclass operator
+                .put(new Info("torch::nn::ModuleHolder<torch::nn::" + name + "Impl>::get").skip()) // Cannot override superclass operator
+                */
+
+        ;
+        if (!name.equals("Sequential")) {
+            infoMap.put(new Info("torch::nn::ModuleHolder<torch::nn::SequentialImpl>::push_back<torch::nn::" + name + "Impl>")
+                    .javaNames("push_back"));
+        }
+
+        for (String m: moduleMethods) {
+            infoMap.put(new Info("torch::nn::ModuleHolder<" + moduleClass + ">::" + m).annotations("@Name(\"get()->" + m + "\")"));
+        }
         if (!hasDefaultConstructor) {
-            infoMap.put(new Info("torch::nn::ModuleHolder<torch::nn::" + name + "Impl>()").skip());
+            infoMap.put(new Info("torch::nn::ModuleHolder<" + moduleClass + ">()").skip());
         }
     }
 
     public void map(InfoMap infoMap) {
+        //Info.getDefault().friendly();
         infoMap.putFirst(new Info("openblas_config.h", "cblas.h", "lapacke_config.h", "lapacke_mangling.h", "lapack.h", "lapacke.h", "lapacke_utils.h").skip())
                .put(new Info("ordered_dict.h").linePatterns(".*class Item;.*").skip())
-               .put(new Info().enumerate())
+               .put(new Info().enumerate().friendly())
                .put(new Info().javaText("import org.bytedeco.pytorch.Allocator;"))
                .put(new Info().javaText("import org.bytedeco.pytorch.Function;"))
                .put(new Info().javaText("import org.bytedeco.pytorch.Module;"))
@@ -2074,8 +2157,19 @@ public class torch implements LoadEnabled, InfoMapper {
                .put(new Info("std::vector<c10::optional<at::IValue> >").pointerTypes("IValueOptionalVector").define())
                .put(new Info("c10::Dict<c10::IValue,c10::IValue>").purify().pointerTypes("GenericDict").define())
                .put(new Info("c10::impl::DictIterator<c10::IValue,c10::IValue,c10::detail::DictImpl::dict_map_type::iterator>",
-                             "c10::Dict<c10::IValue,c10::IValue>::iterator").purify().pointerTypes("GenericDictIterator").define())
-               .put(new Info("c10::impl::DictEntryRef<c10::IValue,c10::IValue,c10::detail::DictImpl::dict_map_type::iterator>").pointerTypes("GenericDictEntryRef").define())
+                             "c10::Dict<c10::IValue,c10::IValue>::iterator").purify().pointerTypes("GenericDictIterator").define().friendly())
+               .put(new Info("c10::impl::DictIterator::operator -(const c10::impl::DictIterator&, const c10::impl::DictIterator&)").skip())
+                .put(new Info("c10::impl::DictIterator<c10::IValue,c10::IValue,c10::detail::DictImpl::dict_map_type::iterator>::operator -(const c10::impl::DictIterator<c10::IValue,c10::IValue,c10::detail::DictImpl::dict_map_type::iterator>&, const c10::impl::DictIterator<c10::IValue,c10::IValue,c10::detail::DictImpl::dict_map_type::iterator>&)").skip())
+                .put(new Info("c10::Dict::iterator::operator <(const c10::Dict::iterator&, const c10::Dict::iterator&)").skip())
+                .put(new Info("c10::impl::DictIterator<c10::IValue,c10::IValue,c10::detail::DictImpl::dict_map_type::iterator>::operator <(const c10::impl::DictIterator<c10::IValue,c10::IValue,c10::detail::DictImpl::dict_map_type::iterator>&, const c10::impl::DictIterator<c10::IValue,c10::IValue,c10::detail::DictImpl::dict_map_type::iterator>&)").skip())
+                .put(new Info("c10::Dict::iterator::operator <=(const c10::Dict::iterator&, const c10::Dict::iterator&)").skip())
+                .put(new Info("c10::impl::DictIterator<c10::IValue,c10::IValue,c10::detail::DictImpl::dict_map_type::iterator>::operator <=(const c10::impl::DictIterator<c10::IValue,c10::IValue,c10::detail::DictImpl::dict_map_type::iterator>&, const c10::impl::DictIterator<c10::IValue,c10::IValue,c10::detail::DictImpl::dict_map_type::iterator>&)").skip())
+                .put(new Info("c10::Dict::iterator::operator >=(const c10::Dict::iterator&, const c10::Dict::iterator&)").skip())
+                .put(new Info("c10::impl::DictIterator<c10::IValue,c10::IValue,c10::detail::DictImpl::dict_map_type::iterator>::operator >=(const c10::impl::DictIterator<c10::IValue,c10::IValue,c10::detail::DictImpl::dict_map_type::iterator>&, const c10::impl::DictIterator<c10::IValue,c10::IValue,c10::detail::DictImpl::dict_map_type::iterator>&)").skip())
+                .put(new Info("c10::Dict::iterator::operator >(const c10::Dict::iterator&, const c10::Dict::iterator&)").skip())
+                .put(new Info("c10::impl::DictIterator<c10::IValue,c10::IValue,c10::detail::DictImpl::dict_map_type::iterator>::operator >(const c10::impl::DictIterator<c10::IValue,c10::IValue,c10::detail::DictImpl::dict_map_type::iterator>&, const c10::impl::DictIterator<c10::IValue,c10::IValue,c10::detail::DictImpl::dict_map_type::iterator>&)").skip())
+
+                .put(new Info("c10::impl::DictEntryRef<c10::IValue,c10::IValue,c10::detail::DictImpl::dict_map_type::iterator>").pointerTypes("GenericDictEntryRef").define())
                .put(new Info("std::map<std::string,std::string>").pointerTypes("StringStringMap").define())
                .put(new Info("std::map<std::string,int>").pointerTypes("StringIntMap").define())
                .put(new Info("std::map<std::string,int64_t>").pointerTypes("StringLongMap").define())
@@ -2231,7 +2325,7 @@ public class torch implements LoadEnabled, InfoMapper {
                              "torch::autograd::NodeGuard", "torch::autograd::TraceableFunction", "torch::jit::Instruction", "torch::jit::Method", "torch::jit::ModuleInstanceInfo",
                              "torch::jit::Object::Property", "torch::jit::Operator", "torch::jit::OperatorSet", "torch::jit::SourceRangePickler", "torch::jit::Suspend", "torch::jit::Unpickler").purify())
 
-               .put(new Info("c10::intrusive_ptr", "c10::weak_intrusive_ptr", "c10::guts::is_fundamental", "c10::operator !=", "c10::operator ==", "c10::operator <<",
+               .put(new Info("c10::intrusive_ptr", "c10::weak_intrusive_ptr", "c10::guts::is_fundamental",
                              "c10::detail::CaptureKernelCall", "c10::detail::DictImpl", "c10::detail::MultiDispatchKeySet", "c10::ExclusivelyOwnedTraits", "c10::FunctionSchema::dump",
                              "c10::domain_prefix", "c10::C10FlagsRegistry", "c10::enforce_detail::EnforceFailMessage", "c10::impl::build_feature_required_feature_not_available",
                              "c10::detail::getMaybeFakeTypePtr_", "c10::complex_literals::operator \"\"_if", "c10::complex_literals::operator \"\"_id", "c10::complex<c10::Half>",
@@ -2284,13 +2378,13 @@ public class torch implements LoadEnabled, InfoMapper {
                .put(new Info("c10::TensorOptions<c10::Device>").javaNames("TensorOptions"))
                .put(new Info("c10::detail::_str<CompileTimeEmptyString>").javaNames("_strCompileTimeEmptyString"))
                .put(new Info("at::TensorBase").base("AbstractTensor").pointerTypes("TensorBase"))
-               .put(new Info("at::TensorBase::data_ptr<int8_t>").javaNames("data_ptr_byte"))
+               .put(new Info("at::TensorBase::data_ptr<int8_t>").javaNames("data_ptr_char"))
                .put(new Info("at::TensorBase::data_ptr<int16_t>").javaNames("data_ptr_short"))
                .put(new Info("at::TensorBase::data_ptr<int>").javaNames("data_ptr_int"))
                .put(new Info("at::TensorBase::data_ptr<int64_t>").javaNames("data_ptr_long"))
                .put(new Info("at::TensorBase::data_ptr<float>").javaNames("data_ptr_float"))
                .put(new Info("at::TensorBase::data_ptr<double>").javaNames("data_ptr_double"))
-               .put(new Info("at::Tensor::item<int8_t>").javaNames("item_byte"))
+               .put(new Info("at::Tensor::item<int8_t>").javaNames("item_char"))
                .put(new Info("at::Tensor::item<int16_t>").javaNames("item_short"))
                .put(new Info("at::Tensor::item<int>").javaNames("item_int"))
                .put(new Info("at::Tensor::item<int64_t>").javaNames("item_long"))
@@ -2703,12 +2797,43 @@ public class torch implements LoadEnabled, InfoMapper {
                .put(new Info("torch::nn::LPPoolOptions<3>", "torch::nn::functional::LPPool3dFuncOptions").pointerTypes("LPPool3dOptions"))
 
                .put(new Info("std::shared_ptr<torch::nn::Module>").annotations("@SharedPtr")
-                       .valueTypes("@Cast({\"\", \"std::shared_ptr<torch::nn::Module>\"}) Module").pointerTypes("Module"))
-               .put(new Info("torch::nn::ModuleHolder<torch::nn::Module>").pointerTypes("ModuleHolder"))
-               .put(new Info("torch::nn::Module::as").javaText("public Module asModule() { return this; }"))
+                       .valueTypes("@Cast({\"\", \"std::shared_ptr<torch::nn::Module>\"}) Module").pointerTypes("Module")
+        //.valueTypes("@ByVal SharedModule")
+                       ///        .pointerTypes("SharedModule").castAsArg() // A AUTOMATISER
+                       )
+               .put(new Info("torch::nn::ModuleHolder<torch::nn::Module>")
+                       .pointerTypes("ModuleHolder")
+                       //.copyFrom("torch::nn::Module")
+                               )
+                //.put(new Info("torch::nn::ModuleHolder<torch::nn::Module>::get").skip()) // Pour permettre get() dans sous-classes
+               //.put(new Info("torch::nn::Module::as").javaText("public Module asModule() { return this; }"))
+               //.put(new Info("torch::nn::Module").flatten())
                .put(new Info("torch::nn::Module::register_module<torch::nn::Module>").javaNames("register_module"))
                .put(new Info("std::shared_ptr<torch::nn::AnyModule>").annotations("@SharedPtr")
-                       .valueTypes("@Cast({\"\", \"std::shared_ptr<torch::nn::AnyModule>\"}) AnyModule").pointerTypes("AnyModule"));
+                       .valueTypes("@Cast({\"\", \"std::shared_ptr<torch::nn::AnyModule>\"}) AnyModule").pointerTypes("AnyModule"))
+                .put(new Info("c10::IValue::operator ==").skip()) // Name conflict with IValue.equals
+
+                //.put(new Info("torch::nn::SequentialImpl::forward(InputTypes&&... inputs)").javaText("public native @ByVal Tensor forward(@Const @ByRef Tensor input0)"))
+                /***.put(new Info("torch::nn::SequentialImpl::forward()",
+                        "torch::nn::Sequential::forward()").javaText("public native @ByVal Tensor forward(@Const @ByRef Tensor input0);"))*/
+
+                .put(new Info("torch::nn::Module").virtualize()) // XXX Corriger aussi iterator: begin renvoie item.
+                .put(new Info("torch::nn::Module::_forward_populate_default_args").skip())
+                .put(new Info("torch::nn::Module::_forward_num_required_args").skip())
+                .put(new Info("torch::nn::Module::_forward_has_default_args").skip())
+                .put(new Info("torch::nn::Module::clone_").skip())
+                //.put(new Info("torch::nn::AnyModule").javaNames("AnyModule"))
+
+                //.put(new Info("std::shared_ptr<torch::nn::Module>").pointerTypes("SharedModule").define().copyFrom("torch::nn::Module"))
+        // marche pas (défini avant Module)
+                ////.put(new Info("SharedPtrAdapter<torch::nn::Module>*").pointerTypes("SharedModule").define())
+        ;
+
+               for (String m: moduleMethods) {
+                   infoMap.put(new Info("torch::nn::ModuleHolder<torch::nn::Module>::" + m).annotations("@Name(\"get()->" + m + "\")"));
+               }
+            // PKOI ?   infoMap.put(new Info("torch::nn::ModuleHolder<torch::nn::Module>(std::shared_ptr<torch::nn::Module>)").skip())
+        ;
 
         String[] factories = {"_cudnn_init_dropout_state", "arange", "bartlett_window", "blackman_window", "empty", "_empty_affine_quantized",
                               "_empty_per_channel_affine_quantized", "empty_quantized", "empty_like", "empty_strided", "eye", "full", "full", "full_like", "from_file",
