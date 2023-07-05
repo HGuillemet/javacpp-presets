@@ -280,7 +280,6 @@ public class torch implements LoadEnabled, InfoMapper {
 
             .put(new Info().javaText("import org.bytedeco.pytorch.Allocator;"))
             .put(new Info().javaText("import org.bytedeco.pytorch.Function;"))
-            .put(new Info().javaText("import org.bytedeco.pytorch.functions.*;"))
             .put(new Info().javaText("import org.bytedeco.pytorch.Module;"))
             .put(new Info().javaText("import org.bytedeco.javacpp.annotation.Cast;"))
 
@@ -2148,7 +2147,6 @@ public class torch implements LoadEnabled, InfoMapper {
                    "torch::autograd::ViewInfo", "torch::jit::InlinedCallStackPtr", "InlinedCallStackPtr", "torch::jit::ScopePtr", "torch::jit::BackendDebugInfoRecorder",
                    "torch::detail::TensorDataContainer", "at::ArrayRef<torch::detail::TensorDataContainer>",
                    "std::shared_ptr<caffe2::serialize::PyTorchStreamReader>", "caffe2::serialize::PyTorchStreamWriter",
-                   "std::function<torch::Tensor(const torch::Tensor&)>", // Returned by  transformer_activation_t.get2()
                    "c10::detail::DictImpl::dict_map_type::iterator",
                    "std::iterator<std::forward_iterator_tag,c10::impl::DictEntryRef<c10::IValue,c10::IValue,c10::detail::DictImpl::dict_map_type::iterator> >",
                    "c10::optional<PyObject*>", "c10::optional<c10::string_view>", "c10::optional<std::vector<c10::string_view> >", "c10::optional<std::chrono::milliseconds>",
@@ -2209,40 +2207,43 @@ public class torch implements LoadEnabled, InfoMapper {
 
 
         //// Callback functions
+        new FunctionInfo("Func").args("void()").map(infoMap);
+        new FunctionInfo("StringSupplier").args("std::string(void)").map(infoMap);
+        new FunctionInfo("StringConsumer").args("void(const std::string&)").map(infoMap);
+        new FunctionInfo("DDPLogger").args("void(const c10::DDPLoggingData&)", "void(const DDPLoggingData&)").map(infoMap);
+        new FunctionInfo("TypeMapper").args("c10::TypePtr(c10::TypePtr)", "c10::TypePtr(TypePtr)").map(infoMap);
+        new FunctionInfo("ValueMapper").args("torch::jit::Value*(torch::jit::Value*)", "torch::jit::Value*(Value*)").map(infoMap);
+        new FunctionInfo("GraphFunctionCreator").args("void(torch::jit::GraphFunction&)", "void(GraphFunction&)").map(infoMap);
+        new FunctionInfo("PointerConsumer", "@Cast(\"void(*)(void*)\") Pointer", "@Cast(\"void(*)(void*)\") long").args("void(void*)").otherCppNames("torch::Deleter").map(infoMap);
+        new FunctionInfo("ModuleApplyFunction").args("void(const torch::nn::Module&)", "void(torch::nn::Module&)").otherCppNames("torch::nn::Module::ModuleApplyFunction", "torch::nn::Module::ConstModuleApplyFunction").map(infoMap);
+        new FunctionInfo("NamedModuleApplyFunction").args("void(std::string&,const torch::nn::Module&)", "void(std::string&,torch::nn::Module&)").otherCppNames("torch::nn::NamedModuleApplyFunction", "torch::nn::ConstNamedModuleApplyFunction").map(infoMap);
+        new FunctionInfo("JitModuleApplyFunction").args("void(const torch::jit::Module&)", "void(torch::jit::Module&)").map(infoMap);
+        new FunctionInfo("SharedModuleApplyFunction").args("void(const std::shared_ptr<torch::nn::Module>&)").otherCppNames("torch::nn::ModulePointerApplyFunction").map(infoMap);
+        new FunctionInfo("NamedSharedModuleApplyFunction").args("void(std::string&,const std::shared_ptr<torch::nn::Module>&)").otherCppNames("torch::nn::Module::NamedModulePointerApplyFunction").map(infoMap);
+        new FunctionInfo("IValueVectorConsumer").args("void(std::vector<c10::IValue>&)", "void(std::vector<IValue>&)").map(infoMap);
+        new FunctionInfo("IValueSupplier").args("c10::IValue()").map(infoMap);
+        new FunctionInfo("Reader").args("size_t(uint64_t,void*,size_t)").map(infoMap);
+        new FunctionInfo("ArchiveWriter").args("size_t(const void*,size_t)").map(infoMap);
+        new FunctionInfo("PickleWriter").args("void(const char*,size_t)").map(infoMap);
+        new FunctionInfo("TypeRenamer").args("c10::QualifiedName(const std::shared_ptr<c10::ClassType>&)", "c10::QualifiedName(const c10::ClassTypePtr&)").map(infoMap);
+        new FunctionInfo("TensorIdGetter").args("std::string(const at::Tensor&)").map(infoMap);
+        new FunctionInfo("SizeTSupplier").args("size_t(void)").map(infoMap);
+        new FunctionInfo("LossClosure").args("torch::Tensor()").map(infoMap);
+        new FunctionInfo("DistanceFunction").args("at::Tensor(const at::Tensor&,const at::Tensor&)").otherCppNames("torch::nn::TripletMarginWithDistanceLossOptions::distance_function_t", "torch::nn::functional::TripletMarginWithDistanceLossFuncOptions::distance_function_t").map(infoMap);
+        new FunctionInfo("VoidTensorHook").args("void(at::TensorBase)").map(infoMap);
+        new FunctionInfo("TensorTensorHook").args("at::TensorBase(at::TensorBase)").map(infoMap);
+
         infoMap
             .put(new Info("c10::DeleterFnPtr").cast().valueTypes("PointerConsumer", "Pointer", "long"))
-            .put(new Info("torch::Deleter", "std::function<void(void*)>").pointerTypes("PointerConsumer", "@Cast(\"void(*)(void*)\") Pointer", "@Cast(\"void(*)(void*)\") long"))
-            .put(new Info("std::function<void()>").pointerTypes("Func"))
-            .put(new Info("std::function<std::string(void)>").pointerTypes("StringSupplier"))
-            .put(new Info("std::function<void(const std::string&)>").pointerTypes("StringConsumer"))
-            .put(new Info("std::function<void(const c10::DDPLoggingData&)>",
-                "std::function<void(const DDPLoggingData&)>").pointerTypes("DDPLogger"))
-            .put(new Info("std::function<c10::TypePtr(c10::TypePtr)>").pointerTypes("TypeMapper"))
-            .put(new Info("std::function<torch::jit::Value*(torch::jit::Value*)>").pointerTypes("ValueMapper"))
-            .put(new Info("std::function<void(torch::jit::GraphFunction&)>").pointerTypes("GraphFunctionCreator"))
-            .put(new Info("torch::nn::Module::ModuleApplyFunction", "torch::nn::Module::ConstModuleApplyFunction", "std::function<void(const torch::nn::Module&)>", "std::function<void(torch::nn::Module&)>").pointerTypes("ModuleApplyFunction"))
-            .put(new Info("std::function<void(const torch::jit::Module&)>", "std::function<void(torch::jit::Module&)>").pointerTypes("JitModuleApplyFunction"))
-            .put(new Info("torch::nn::NamedModuleApplyFunction", "torch::nn::ConstNamedModuleApplyFunction", "std::function<void(const std::string&,const torch::nn::Module&)>", "std::function<void(const std::string&,torch::nn::Module&)>").pointerTypes("NamedModuleApplyFunction"))
-            .put(new Info("torch::nn::ModulePointerApplyFunction", "std::function<void(const std::shared_ptr<torch::nn::Module>&)>").pointerTypes("SharedModuleApplyFunction"))
-            .put(new Info("torch::nn::Module::NamedModulePointerApplyFunction", "std::function<void(const std::string&,const std::shared_ptr<torch::nn::Module>&)>").pointerTypes("NamedSharedModuleApplyFunction"))
-            .put(new Info("std::function<void(std::vector<c10::IValue>&)>").pointerTypes("IValueVectorConsumer"))
-            .put(new Info("std::function<c10::IValue()>").pointerTypes("IValueSupplier"))
-            .put(new Info("std::function<size_t(uint64_t,void*,size_t)>").pointerTypes("Reader"))
-            .put(new Info("std::function<size_t(const void*,size_t)>").pointerTypes("ArchiveWriter"))
-            .put(new Info("std::function<void(const char*,size_t)>").pointerTypes("PickleWriter"))
-            .put(new Info("std::function<c10::QualifiedName(const std::shared_ptr<c10::ClassType>&)>").pointerTypes("TypeRenamer"))
-            .put(new Info("std::function<std::string(const at::Tensor&)>").pointerTypes("TensorIdGetter"))
-            .put(new Info("std::function<size_t(void)>").pointerTypes("SizeTSupplier"))
-            .put(new Info("std::function<torch::Tensor()>").pointerTypes("LossClosure"))
-            .put(new Info("std::function<torch::Tensor(const torch::Tensor&,const torch::Tensor&)>",
-                "torch::nn::TripletMarginWithDistanceLossOptions::distance_function_t",
-                "torch::nn::functional::TripletMarginWithDistanceLossFuncOptions::distance_function_t").pointerTypes("DistanceFunction"))
+            // Parser doesn't qualify type of arguments in function pointer and we cannot distinguish
+            // std::function<void(torch::jit::Module&)> from std::function<void(torch::nn::Module&)>
+            // when used as std::function<void(Module&)>. So we rely on javaText for the jit version.
+            .put(new Info("torch::jit::Module::apply").javaText(
+                "public native void apply(@Const @ByRef JitModuleApplyFunction fn);"
+            ))
             .put(new Info("std::function<void(std::function<void()>)>").pointerTypes("Pointer"))
-
             .put(new Info("at::TensorBase::register_hook<std::function<void(at::TensorBase)> >").javaNames("register_hook"))
             .put(new Info("at::TensorBase::register_hook<std::function<at::TensorBase(at::TensorBase)> >").javaNames("register_hook"))
-            .put(new Info("std::function<void(at::TensorBase)>").pointerTypes("VoidTensorHook"))
-            .put(new Info("std::function<at::TensorBase(at::TensorBase)>").pointerTypes("TensorTensorHook"))
             .put(new Info("at::TensorBase::hook_return_void_t<std::function<void(at::TensorBase)> > ",
                 "at::TensorBase::hook_return_void_t<std::function<at::TensorBase(at::TensorBase)> >").valueTypes("int"))
         ;
@@ -2408,6 +2409,30 @@ public class torch implements LoadEnabled, InfoMapper {
         PointerInfo javaName(String jn) {
             javaName = jn;
             return this;
+        }
+    }
+
+    private static class FunctionInfo {
+        final private String[] pointerTypes;
+        private String[] args;
+        private String[] otherCppNames = new String[0];
+        FunctionInfo(String... pt) {
+            pointerTypes = pt;
+        }
+        FunctionInfo args(String... a) {
+            args = a;
+            return this;
+        }
+        FunctionInfo otherCppNames(String... n) {
+            otherCppNames = n;
+            return this;
+        }
+        void map(InfoMap map) {
+            String[] cppNames = new String[args.length + otherCppNames.length];
+            for (int i = 0; i < args.length; i++)
+                cppNames[i] = "std::function<" + args[i] + ">";
+            System.arraycopy(otherCppNames, 0, cppNames, args.length, otherCppNames.length);
+            map.put(new Info(cppNames).pointerTypes(pointerTypes).define());
         }
     }
 
