@@ -2207,7 +2207,8 @@ public class torch implements LoadEnabled, InfoMapper {
 
 
         //// Callback functions
-        new FunctionInfo("Func").args("void()").map(infoMap);
+        //new FunctionInfo("Func").args("void()").map(infoMap);
+        infoMap.put(new Info("std::function<void()>").pointerTypes("Func"));
         new FunctionInfo("StringSupplier").args("std::string(void)").map(infoMap);
         new FunctionInfo("StringConsumer").args("void(const std::string&)").map(infoMap);
         new FunctionInfo("DDPLogger").args("void(const c10::DDPLoggingData&)", "void(const DDPLoggingData&)").map(infoMap);
@@ -2216,10 +2217,10 @@ public class torch implements LoadEnabled, InfoMapper {
         new FunctionInfo("GraphFunctionCreator").args("void(torch::jit::GraphFunction&)", "void(GraphFunction&)").map(infoMap);
         new FunctionInfo("PointerConsumer", "@Cast(\"void(*)(void*)\") Pointer", "@Cast(\"void(*)(void*)\") long").args("void(void*)").otherCppNames("torch::Deleter").map(infoMap);
         new FunctionInfo("ModuleApplyFunction").args("void(const torch::nn::Module&)", "void(torch::nn::Module&)").otherCppNames("torch::nn::Module::ModuleApplyFunction", "torch::nn::Module::ConstModuleApplyFunction").map(infoMap);
-        new FunctionInfo("NamedModuleApplyFunction").args("void(std::string&,const torch::nn::Module&)", "void(std::string&,torch::nn::Module&)").otherCppNames("torch::nn::NamedModuleApplyFunction", "torch::nn::ConstNamedModuleApplyFunction").map(infoMap);
+        new FunctionInfo("NamedModuleApplyFunction").args("void(const std::string&,const torch::nn::Module&)", "void(std::string&,torch::nn::Module&)").otherCppNames("torch::nn::NamedModuleApplyFunction", "torch::nn::ConstNamedModuleApplyFunction").map(infoMap);
         new FunctionInfo("JitModuleApplyFunction").args("void(const torch::jit::Module&)", "void(torch::jit::Module&)").map(infoMap);
         new FunctionInfo("SharedModuleApplyFunction").args("void(const std::shared_ptr<torch::nn::Module>&)").otherCppNames("torch::nn::ModulePointerApplyFunction").map(infoMap);
-        new FunctionInfo("NamedSharedModuleApplyFunction").args("void(std::string&,const std::shared_ptr<torch::nn::Module>&)").otherCppNames("torch::nn::Module::NamedModulePointerApplyFunction").map(infoMap);
+        new FunctionInfo("NamedSharedModuleApplyFunction").args("void(const std::string&,const std::shared_ptr<torch::nn::Module>&)").otherCppNames("torch::nn::Module::NamedModulePointerApplyFunction").map(infoMap);
         new FunctionInfo("IValueVectorConsumer").args("void(std::vector<c10::IValue>&)", "void(std::vector<IValue>&)").map(infoMap);
         new FunctionInfo("IValueSupplier").args("c10::IValue()").map(infoMap);
         new FunctionInfo("Reader").args("size_t(uint64_t,void*,size_t)").map(infoMap);
@@ -2232,6 +2233,7 @@ public class torch implements LoadEnabled, InfoMapper {
         new FunctionInfo("DistanceFunction").args("at::Tensor(const at::Tensor&,const at::Tensor&)").otherCppNames("torch::nn::TripletMarginWithDistanceLossOptions::distance_function_t", "torch::nn::functional::TripletMarginWithDistanceLossFuncOptions::distance_function_t").map(infoMap);
         new FunctionInfo("VoidTensorHook").args("void(at::TensorBase)").map(infoMap);
         new FunctionInfo("TensorTensorHook").args("at::TensorBase(at::TensorBase)").map(infoMap);
+        new FunctionInfo("TensorMapper").args("torch::Tensor(const torch::Tensor&)").map(infoMap);
 
         infoMap
             .put(new Info("c10::DeleterFnPtr").cast().valueTypes("PointerConsumer", "Pointer", "long"))
