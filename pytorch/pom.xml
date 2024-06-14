@@ -9,7 +9,7 @@
     <version>1.5.11-SNAPSHOT</version>
   </parent>
 
-  <groupId>org.bytedeco</groupId>
+  <groupId>fr.apteryx</groupId>
   <artifactId>pytorch</artifactId>
   <version>2.3.1-${project.parent.version}</version>
   <name>JavaCPP Presets for PyTorch</name>
