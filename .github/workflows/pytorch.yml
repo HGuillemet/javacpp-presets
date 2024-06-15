@@ -30,19 +30,19 @@ jobs:
           key: ${{ github.workflow }}-${{ github.job }}${{ matrix.ext }}@${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: ${{ github.workflow }}-${{ github.job }}${{ matrix.ext }}@
           path: /home/runner/.ccache
-      - uses: HGuillemet/javacpp-presets/.github/actions/deploy-ubuntu@actions
+      - uses: HGuillemet/javacpp-presets/.github/actions/deploy-ubuntu@apteryx_pytorch
         timeout-minutes: 350
   macosx-arm64:
     runs-on: macos-12
     steps:
-      - uses: HGuillemet/javacpp-presets/.github/actions/deploy-macosx@actions
+      - uses: HGuillemet/javacpp-presets/.github/actions/deploy-macosx@apteryx_pytorch
   macosx-x86_64:
     runs-on: macos-12
 #    strategy:
 #      matrix:
 #        ext: ["", -gpu]
     steps:
-      - uses: HGuillemet/javacpp-presets/.github/actions/deploy-macosx@actions
+      - uses: HGuillemet/javacpp-presets/.github/actions/deploy-macosx@apteryx_pytorch
   windows-x86_64:
     runs-on: windows-2019
     strategy:
@@ -62,10 +62,10 @@ jobs:
           key: ${{ github.workflow }}-${{ github.job }}${{ matrix.ext }}@${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: ${{ github.workflow }}-${{ github.job }}${{ matrix.ext }}@
           path: ~/ccache/?
-      - uses: HGuillemet/javacpp-presets/.github/actions/deploy-windows@actions
+      - uses: HGuillemet/javacpp-presets/.github/actions/deploy-windows@apteryx_pytorch
         timeout-minutes: 350
   redeploy:
     needs: [linux-x86_64, macosx-arm64, macosx-x86_64, windows-x86_64]
     runs-on: ubuntu-20.04
     steps:
-      - uses: HGuillemet/javacpp-presets/.github/actions/redeploy@actions
+      - uses: HGuillemet/javacpp-presets/.github/actions/redeploy@apteryx_pytorch
