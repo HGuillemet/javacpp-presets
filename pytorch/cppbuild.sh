@@ -59,7 +59,7 @@ if [[ $PLATFORM == windows* ]]; then
         cd build
         cmake ../libuv-v1.39.0 -DBUILD_TESTING=OFF
         cmake --build . --config Release
-        cmake --install . --config Release --prefix=../dist
+        cmake --install . --config Release --prefix ../dist
         cd ../..
     fi
     export libuv_ROOT=`pwd`/libuv/dist
