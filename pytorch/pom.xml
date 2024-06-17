@@ -32,6 +32,7 @@
     </dependency>
   </dependencies>
 
+  <!-- To help finding parent pom, but probably useless -->
   <repositories>
     <repository>
       <id>sonatype-nexus-snapshots</id>
