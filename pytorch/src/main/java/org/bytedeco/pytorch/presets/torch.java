@@ -86,7 +86,7 @@ import org.bytedeco.openblas.presets.openblas;
             },
             exclude = {"openblas_config.h", "cblas.h", "lapacke_config.h", "lapacke_mangling.h", "lapack.h", "lapacke.h", "lapacke_utils.h"},
             link = {"c10", "torch_cpu", "torch"},
-            preload = {"gomp@.1", "iomp5", "omp", "tbb@.2", "asmjit", "fbgemm", "uv"}
+            preload = {"gomp@.1", "iomp5", "omp", "tbb@.2", "asmjit", "fbgemm", "uv", "iomp5md"}
         ),
         @Platform(
             value = {"linux", "macosx", "windows"},
