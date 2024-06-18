@@ -72,8 +72,14 @@
         <dependencies>
           <dependency>
             <groupId>org.bytedeco</groupId>
-            <artifactId>openblas-platform</artifactId>
+            <artifactId>openblas</artifactId>
             <version>0.3.27-${project.parent.version}</version>
+          </dependency>
+          <dependency>
+            <groupId>org.bytedeco</groupId>
+            <artifactId>openblas</artifactId>
+            <version>0.3.27-${project.parent.version}</version>
+            <classifier>${javacpp.platform}</classifier>
           </dependency>
           <dependency>
             <groupId>org.bytedeco</groupId>
