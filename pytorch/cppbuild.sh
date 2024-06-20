@@ -30,7 +30,7 @@ if [[ "$EXTENSION" == *gpu ]]; then
     export USE_CUDNN=1
     export USE_FAST_NVCC=0
     export CUDA_SEPARABLE_COMPILATION=OFF
-    export TORCH_CUDA_ARCH_LIST="5.0;6.0;7.0;8.0;9.0"
+    export TORCH_CUDA_ARCH_LIST="7.0;7.5;8.0;8.6;9.0" #;8.9"
 fi
 
 export PYTHON_BIN_PATH=$(which python3)
@@ -47,8 +47,7 @@ mkdir -p "$PLATFORM$EXTENSION"
 cd "$PLATFORM$EXTENSION"
 INSTALL_PATH=`pwd`
 
-# Distributed needs libuv on Windows (on other platforms, it's included
-# in tensorpipe)
+# Distributed needs libuv on Windows (on other platforms, it's included in tensorpipe)
 if [[ $PLATFORM == windows* ]]; then
     if [[ ! -d libuv ]]; then
         mkdir libuv
@@ -61,11 +60,6 @@ if [[ $PLATFORM == windows* ]]; then
         cmake --build . --config Release
         cmake --install . --config Release --prefix ../dist
         cd ../..
-
-        #nuget install  intelopenmp.devel.win -Version 2024.1.0.964
-        #export CMAKE_INCLUDE_PATH=${INSTALL_PATH}/intelopenmp.devel.win.2024.1.0.964/build/native/include
-        #export CMAKE_LIBRARY_PATH="${INSTALL_PATH}/intelopenmp.devel.win.2024.1.0.964/build/native/win-x64;${INSTALL_PATH}/intelopenmp.redist.win.2024.1.0.964/runtimes/win-x64/native"
-
     fi
     export libuv_ROOT=${INSTALL_PATH}/libuv/dist
 fi
@@ -222,10 +216,6 @@ fi
 
 #USE_FBGEMM=0 USE_KINETO=0 USE_GLOO=0 USE_MKLDNN=0 \
 "$PYTHON_BIN_PATH" setup.py build
-
-echo "CMAKECACHE"
-cat $BUILD_DIR/CMakeCache.txt
-cat $BUILD_DIR/CMakeFiles/CMakeConfigureLog.yaml
 
 rm -Rf ../lib
 if [[ ! -e torch/include/gloo ]]; then
