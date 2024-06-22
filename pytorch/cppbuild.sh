@@ -210,8 +210,11 @@ sedinplace 's/const std::string& interface)/const std::string\& interface_name)/
 # Wait for eventual upstream fix, or for cmake 2.30 that allows to choose between -openmp and -openmp:experimental
 # and see if choosing experimental works. See Issue #1503.
 # On Linux, pytorch FindOpenMP.cmake picks llvm libomp over libgomp. See Issue #1504.
-rm cmake/Modules/FindOpenMP.cmake
-sedinplace 's/include(${CMAKE_CURRENT_LIST_DIR}\/Modules\/FindOpenMP.cmake)/find_package(OpenMP)/g' cmake/Dependencies.cmake
+# Keep it on MacOS since it appends the correct -Xpreprocessor -fopenmp -I/usr/local/include flags
+if [[ ! $PLATFORM == macosx-* ]]; then
+  rm cmake/Modules/FindOpenMP.cmake
+  sedinplace 's/include(${CMAKE_CURRENT_LIST_DIR}\/Modules\/FindOpenMP.cmake)/find_package(OpenMP)/g' cmake/Dependencies.cmake
+fi
 
 #USE_FBGEMM=0 USE_KINETO=0 USE_GLOO=0 USE_MKLDNN=0 \
 "$PYTHON_BIN_PATH" setup.py build
@@ -226,11 +229,7 @@ ln -sf pytorch/torch/bin ../bin
 
 case $PLATFORM in
     macosx-*)
-        # fix library with correct rpath
-        cp /usr/local/lib/libomp.dylib ../lib/libiomp5.dylib
-        chmod +w ../lib/libiomp5.dylib
-        install_name_tool -id @rpath/libiomp5.dylib ../lib/libiomp5.dylib
-        install_name_tool -change @rpath/libomp.dylib @rpath/libiomp5.dylib ../lib/libtorch_cpu.dylib
+        cp /usr/local/lib/libomp.dylib ../lib
         ;;
     windows-*)
         cp ../libuv/dist/lib/Release/* ../lib
