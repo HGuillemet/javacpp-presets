@@ -36,13 +36,6 @@ jobs:
     runs-on: macos-12
     steps:
       - uses: HGuillemet/javacpp-presets/.github/actions/deploy-macosx@apteryx_pytorch
-  macosx-x86_64:
-    runs-on: macos-12
-#    strategy:
-#      matrix:
-#        ext: ["", -gpu]
-    steps:
-      - uses: HGuillemet/javacpp-presets/.github/actions/deploy-macosx@apteryx_pytorch
   windows-x86_64:
     runs-on: windows-2019
     strategy:
@@ -65,7 +58,7 @@ jobs:
       - uses: HGuillemet/javacpp-presets/.github/actions/deploy-windows@apteryx_pytorch
         timeout-minutes: 350
   redeploy:
-    needs: [linux-x86_64, macosx-arm64, macosx-x86_64, windows-x86_64]
+    needs: [linux-x86_64, macosx-arm64, windows-x86_64]
     runs-on: ubuntu-20.04
     steps:
       - uses: HGuillemet/javacpp-presets/.github/actions/redeploy@apteryx_pytorch
