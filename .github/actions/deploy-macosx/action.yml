@@ -24,10 +24,14 @@ runs:
           sudo rm -Rf /Library/Developer/CommandLineTools/SDKs/MacOSX10*
         fi
 
-        brew uninstall --force --ignore-dependencies gcc gcc@7 gcc@8 gcc@9 gcc@10 gcc@11 gcc@12 gcc@13 little-cms2 maven openblas r
-        brew install boost ccache swig autoconf-archive automake cmake libomp libtool libusb ant nasm xz pkg-config sdl2 gpg1 bison flex perl ragel binutils gradle gmp isl libmpc mpfr geoip pcre ssdeep yajl
-        brew link --force libomp
-
+        brew uninstall --force --ignore-dependencies gcc gcc@7 gcc@8 gcc@9 gcc@10 gcc@11 gcc@12 gcc@13 little-cms2 maven openblas r # imagemagick libraw libuv
+        brew install boost ccache swig autoconf-archive automake cmake libtool libusb ant nasm xz pkg-config sdl2 gpg1 bison flex perl ragel binutils gradle gmp isl libmpc mpfr geoip pcre ssdeep yajl libomp llvm@18
+        
+        # Install version of libomp for llvm 15
+        # brew uninstall -f libomp
+        #curl -LO https://mac.r-project.org/openmp/openmp-15.0.7-darwin20-Release.tar.gz
+        #tar fvxz openmp-15.0.7-darwin20-Release.tar.gz -C /
+        
         # echo Installing an older less buggy version of CMake
         # curl -LO https://raw.githubusercontent.com/Homebrew/homebrew-core/30a3e5e02420a515f9bad02e3cfcde95316db529/Formula/cmake.rb
         # brew unlink cmake
@@ -53,6 +57,8 @@ runs:
           sudo install_name_tool -change /usr/local/lib/gcc/10/libgcc_s.1.dylib @rpath/libgcc_s.1.dylib /usr/local/lib/gcc/10/libgfortran.5.dylib
           sudo install_name_tool -change /usr/local/lib/gcc/10/libgcc_s.1.dylib @rpath/libgcc_s.1.dylib /usr/local/lib/gcc/10/libquadmath.0.dylib
           otool -L /usr/local/lib/gcc/10/*.dylib
+        else
+          brew link libomp --force -v
         fi
 
         sudo install_name_tool -add_rpath @loader_path/. -id @rpath/libomp.dylib `brew ls libomp|grep libomp.dylib`
@@ -116,6 +122,7 @@ runs:
         git --version
         clang --version
         /usr/local/bin/gcc-* --version || true
+        which cmake
         cmake --version
         gradle --version
         mvn -version

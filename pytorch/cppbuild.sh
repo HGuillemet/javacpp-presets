@@ -143,6 +143,7 @@ case $PLATFORM in
     macosx-arm64)
         export CC="clang"
         export CXX="clang++"
+        export PATH=$(brew --prefix llvm@18)/bin:$PATH # Use brew LLVM 15 instead of Xcode LLVM 14
         export CMAKE_OSX_ARCHITECTURES=arm64 # enable cross-compilation on a x86_64 host machine
         export USE_MKLDNN=OFF
         export USE_QNNPACK=OFF # not compatible with arm64 as of PyTorch 2.1.2
@@ -151,6 +152,7 @@ case $PLATFORM in
     macosx-x86_64)
         export CC="clang"
         export CXX="clang++"
+        export PATH=$(brew --prefix llvm@18)/bin:$PATH # Use brew LLVM 15 instead of Xcode LLVM 14
         ;;
     windows-x86_64)
         if which ccache.exe; then
@@ -214,6 +216,31 @@ sedinplace 's/const std::string& interface)/const std::string\& interface_name)/
 if [[ ! $PLATFORM == macosx-* ]]; then
   rm cmake/Modules/FindOpenMP.cmake
   sedinplace 's/include(${CMAKE_CURRENT_LIST_DIR}\/Modules\/FindOpenMP.cmake)/find_package(OpenMP)/g' cmake/Dependencies.cmake
+fi
+if [[ $PLATFORM == macosx-* ]]; then
+  brew ls libomp
+  #export CMAKE_INCLUDE_PATH=/usr/local/Cellar/libomp/18.1.7/include
+  #export CMAKE_LIBRARY_PATH=/usr/local/Cellar/libomp/18.1.7/lib
+  #if [[ ! -e $CMAKE_INCLUDE_PATH ]]; then
+  #    echo libomp 18.1.7 not found
+  #    exit 1
+  #fi
+  export CMAKE_INCLUDE_PATH=/usr/local/include
+  export CMAKE_LIBRARY_PATH=/usr/local/lib
+  #echo Setting CMAKE_INCLUDE_PATH=$CMAKE_INCLUDE_PATH
+  #echo Setting CMAKE_LIBRARY_PATH=$CMAKE_LIBRARY_PATH
+  export LD_LIBRARY_PATH=$CMAKE_LIBRARY_PATH
+  export DYLD_LIBRARY_PATH=$CMAKE_LIBRARY_PATH
+  export OpenMP_C_INCLUDE_DIR=$CMAKE_INCLUDE_PATH
+  export OpenMP_CXX_INCLUDE_DIR=$CMAKE_INCLUDE_PATH
+  export CXXFLAGS="-I$CMAKE_INCLUDE_PATH ${CXXFLAGS:-}"
+  export CFLAGS="-I$CMAKE_INCLUDE_PATH ${CFLAGS:-}"
+  export LDFLAGS="-L$CMAKE_LIBRARY_PATH ${LDFLAGS:-}"
+  #echo Setting CFLAGS=$CFLAGS
+  #echo Setting CXXFLAGS=$CXXFLAGS
+
+  #curl -O https://mac.r-project.org/openmp/openmp-14.0.6-darwin20-Release.tar.gz
+  #tar fvxz openmp-14.0.6-darwin20-Release.tar.gz -C /
 fi
 
 #USE_FBGEMM=0 USE_KINETO=0 USE_GLOO=0 USE_MKLDNN=0 \
