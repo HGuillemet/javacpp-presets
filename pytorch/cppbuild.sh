@@ -143,8 +143,7 @@ case $PLATFORM in
     macosx-arm64)
         export CC="clang"
         export CXX="clang++"
-        export PATH=$(brew --prefix llvm@18)/bin:$PATH # Use brew LLVM 15 instead of Xcode LLVM 14
-        export CMAKE_OSX_ARCHITECTURES=arm64 # enable cross-compilation on a x86_64 host machine
+        # export PATH=$(brew --prefix llvm@18)/bin:$PATH # Use brew LLVM instead of Xcode LLVM 14
         export USE_MKLDNN=OFF
         export USE_QNNPACK=OFF # not compatible with arm64 as of PyTorch 2.1.2
         export CMAKE_OSX_DEPLOYMENT_TARGET=11.00 # minimum needed for arm64 support
@@ -152,7 +151,8 @@ case $PLATFORM in
     macosx-x86_64)
         export CC="clang"
         export CXX="clang++"
-        export PATH=$(brew --prefix llvm@18)/bin:$PATH # Use brew LLVM 15 instead of Xcode LLVM 14
+        export USE_MKLDNN=OFF
+        # export PATH=$(brew --prefix llvm@18)/bin:$PATH # Use brew LLVM instead of Xcode LLVM 14
         ;;
     windows-x86_64)
         if which ccache.exe; then
@@ -212,36 +212,9 @@ sedinplace 's/const std::string& interface)/const std::string\& interface_name)/
 # Wait for eventual upstream fix, or for cmake 2.30 that allows to choose between -openmp and -openmp:experimental
 # and see if choosing experimental works. See Issue #1503.
 # On Linux, pytorch FindOpenMP.cmake picks llvm libomp over libgomp. See Issue #1504.
-# Keep it on MacOS since it appends the correct -Xpreprocessor -fopenmp -I/usr/local/include flags
-if [[ ! $PLATFORM == macosx-* ]]; then
-  rm cmake/Modules/FindOpenMP.cmake
-  sedinplace 's/include(${CMAKE_CURRENT_LIST_DIR}\/Modules\/FindOpenMP.cmake)/find_package(OpenMP)/g' cmake/Dependencies.cmake
-fi
-if [[ $PLATFORM == macosx-* ]]; then
-  brew ls libomp
-  #export CMAKE_INCLUDE_PATH=/usr/local/Cellar/libomp/18.1.7/include
-  #export CMAKE_LIBRARY_PATH=/usr/local/Cellar/libomp/18.1.7/lib
-  #if [[ ! -e $CMAKE_INCLUDE_PATH ]]; then
-  #    echo libomp 18.1.7 not found
-  #    exit 1
-  #fi
-  export CMAKE_INCLUDE_PATH=/usr/local/include
-  export CMAKE_LIBRARY_PATH=/usr/local/lib
-  #echo Setting CMAKE_INCLUDE_PATH=$CMAKE_INCLUDE_PATH
-  #echo Setting CMAKE_LIBRARY_PATH=$CMAKE_LIBRARY_PATH
-  export LD_LIBRARY_PATH=$CMAKE_LIBRARY_PATH
-  export DYLD_LIBRARY_PATH=$CMAKE_LIBRARY_PATH
-  export OpenMP_C_INCLUDE_DIR=$CMAKE_INCLUDE_PATH
-  export OpenMP_CXX_INCLUDE_DIR=$CMAKE_INCLUDE_PATH
-  export CXXFLAGS="-I$CMAKE_INCLUDE_PATH ${CXXFLAGS:-}"
-  export CFLAGS="-I$CMAKE_INCLUDE_PATH ${CFLAGS:-}"
-  export LDFLAGS="-L$CMAKE_LIBRARY_PATH ${LDFLAGS:-}"
-  #echo Setting CFLAGS=$CFLAGS
-  #echo Setting CXXFLAGS=$CXXFLAGS
-
-  #curl -O https://mac.r-project.org/openmp/openmp-14.0.6-darwin20-Release.tar.gz
-  #tar fvxz openmp-14.0.6-darwin20-Release.tar.gz -C /
-fi
+# On MacOS CMake standard version works tooL
+rm cmake/Modules/FindOpenMP.cmake
+sedinplace 's/include(${CMAKE_CURRENT_LIST_DIR}\/Modules\/FindOpenMP.cmake)/find_package(OpenMP)/g' cmake/Dependencies.cmake
 
 #USE_FBGEMM=0 USE_KINETO=0 USE_GLOO=0 USE_MKLDNN=0 \
 "$PYTHON_BIN_PATH" setup.py build
@@ -256,7 +229,7 @@ ln -sf pytorch/torch/bin ../bin
 
 case $PLATFORM in
     macosx-*)
-        cp /usr/local/lib/libomp.dylib ../lib
+        cp $(brew ls libomp|grep libomp.dylib) ../lib
         ;;
     windows-*)
         cp ../libuv/dist/lib/Release/* ../lib
