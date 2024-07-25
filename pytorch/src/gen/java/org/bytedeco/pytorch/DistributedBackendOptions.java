@@ -2,18 +2,12 @@
 
 package org.bytedeco.pytorch;
 
-import org.bytedeco.pytorch.Allocator;
-import org.bytedeco.pytorch.Function;
 import org.bytedeco.pytorch.chrono.*;
-import org.bytedeco.pytorch.Module;
 import org.bytedeco.javacpp.annotation.Cast;
 import org.bytedeco.pytorch.helper.*;
-import java.nio.*;
 import org.bytedeco.javacpp.*;
 import org.bytedeco.javacpp.annotation.*;
 
-import static org.bytedeco.javacpp.presets.javacpp.*;
-import static org.bytedeco.openblas.global.openblas_nolapack.*;
 import static org.bytedeco.openblas.global.openblas.*;
 
 import static org.bytedeco.pytorch.global.torch.*;
@@ -40,7 +34,7 @@ public class DistributedBackendOptions extends Pointer {
   public native @IntrusivePtr("c10d::Store") @Cast({"", "c10::intrusive_ptr<c10d::Store>&"}) Store store(); public native DistributedBackendOptions store(Store setter);
   public native int group_rank(); public native DistributedBackendOptions group_rank(int setter);
   public native int group_size(); public native DistributedBackendOptions group_size(int setter);
-  public native @ByRef FloatDuration timeout(); public native DistributedBackendOptions timeout(FloatDuration setter);
+  public native @ByRef SecondsFloat timeout(); public native DistributedBackendOptions timeout(SecondsFloat setter);
   public native @StdString BytePointer group_id(); public native DistributedBackendOptions group_id(BytePointer setter);
   public native @ByRef @Cast("std::vector<int64_t>*") LongVector global_ranks_in_group(); public native DistributedBackendOptions global_ranks_in_group(LongVector setter);
 }
