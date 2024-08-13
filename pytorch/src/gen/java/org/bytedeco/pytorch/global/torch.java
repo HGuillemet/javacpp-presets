@@ -68113,7 +68113,6 @@ apis for specific fusers.
 
 @Namespace("torch::nn") public static native @Cast("std::ostream*") @ByRef @Name("operator <<") Pointer shiftLeft(@Cast("std::ostream*") @ByRef Pointer stream, @Const @ByRef Module module);
 
-
 /** Serialize a {@code Module} pointer into an {@code OutputArchive}. */
 @Namespace("torch::nn") public static native @ByRef @Name("operator <<") OutputArchive shiftLeft(
     @ByRef OutputArchive archive,
@@ -68158,7 +68157,7 @@ apis for specific fusers.
 //
 // DO NOT put the macros for CUDA libraries in this file; they belong in cuda/CUDAConfig.h
 
-// #define AT_MKLDNN_ENABLED() 1
+// #define AT_MKLDNN_ENABLED() 0
 // #define AT_MKLDNN_ACL_ENABLED() 0
 // #define AT_MKL_ENABLED() 0
 // #define AT_MKL_SEQUENTIAL() 0
@@ -68169,7 +68168,7 @@ apis for specific fusers.
 // #define AT_BUILD_WITH_LAPACK() 1
 public static final int AT_PARALLEL_OPENMP = 1;
 public static final int AT_PARALLEL_NATIVE = 0;
-// #define AT_BLAS_F2C() 0
+// #define AT_BLAS_F2C() 1
 // #define AT_BLAS_USE_CBLAS_DOT() 1
 
 
